@@ -12,6 +12,7 @@ import * as tar from "tar";
 import * as tmp from "tmp";
 
 const stackConfig = new pulumi.Config();
+const awsConfig = new pulumi.Config("aws");
 
 const config = {
     // pathToWebsiteContents is a relative path to the website's contents.
@@ -67,14 +68,20 @@ async function ensurePlaceholderBucket() {
 
     try {
         await s3.headBucket({ Bucket: placeholderBucketName }).promise();
+        console.log(`Found placeholder bucket ${placeholderBucketName}.`);
         return;
     }
     catch (error) {
-        console.log("Placeholder bucket not found.");
+        console.log(`Placeholder bucket ${placeholderBucketName} was not found.`);
     }
 
     try {
-        await s3.createBucket({ Bucket: placeholderBucketName }).promise();
+        await s3.createBucket({
+            Bucket: placeholderBucketName,
+            CreateBucketConfiguration: {
+                LocationConstraint: awsConfig.require("region"),
+            },
+        }).promise();
         await s3.putBucketWebsite({
             Bucket: placeholderBucketName,
             WebsiteConfiguration: {
@@ -104,7 +111,7 @@ if (!originBucketName) {
     throw new Error("An origin bucket was not specified.");
 }
 
-// Fetch the bucket we'll use for the deployment.
+// Fetch the bucket we'll use for the deployment (or preview).
 const originBucket = pulumi.output(aws.s3.getBucket({
     bucket: originBucketName,
 }));

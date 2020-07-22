@@ -79,6 +79,7 @@ bucketize:
 pulumify:
 	@echo -e "\033[0;32mBUILD PULUMIFY:\033[0m"
 	$(MAKE) ensure
+	# Rebuild node-sass. This is only necessary for Pulumify runs.
 	yarn add --force node-sass
 	./scripts/build-site.sh preview
 
