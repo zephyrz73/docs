@@ -78,8 +78,8 @@ bucketize:
 .PHONY: pulumify
 pulumify:
 	@echo -e "\033[0;32mBUILD PULUMIFY:\033[0m"
-	$(MAKE) clean
 	$(MAKE) ensure
+	npm rebuild node-sass
 	./scripts/build-site.sh preview
 
 .PHONY: test
