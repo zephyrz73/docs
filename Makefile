@@ -12,6 +12,7 @@ banner:
 
 .PHONY: clean
 clean:
+	yarn cache clean
 	rm -rf node_modules
 	rm -rf components/node_modules
 	rm -rf public
@@ -77,6 +78,7 @@ bucketize:
 .PHONY: pulumify
 pulumify:
 	@echo -e "\033[0;32mBUILD PULUMIFY:\033[0m"
+	$(MAKE) clean
 	$(MAKE) ensure
 	./scripts/build-site.sh preview
 
