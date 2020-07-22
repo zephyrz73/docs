@@ -61,13 +61,20 @@ if (config.originBucketNameOverride) {
     originBucketName = config.originBucketNameOverride;
 }
 
+// The name of the bucket to use as a placeholder, for previews.
 const placeholderBucketName = `pulumi-docs-origin-placeholder-${pulumi.getStack()}`;
 
+// Ensure we have a placeholder bucket to work with. This function creates one and gives
+// it the proper configuration if we don't have one already.
 async function ensurePlaceholderBucket() {
     const s3 = new aws.sdk.S3();
 
+    // headBucket is a quick way to determine whether the bucket exists and we have access
+    // to work with it. If it does, we're done.
     try {
-        await s3.headBucket({ Bucket: placeholderBucketName }).promise();
+        await s3.headBucket({
+            Bucket: placeholderBucketName,
+        }).promise();
         console.log(`Found placeholder bucket ${placeholderBucketName}.`);
         return;
     }
@@ -75,6 +82,8 @@ async function ensurePlaceholderBucket() {
         console.log(`Placeholder bucket ${placeholderBucketName} was not found.`);
     }
 
+    // Otherwise, create the bucket in the current AWS region and give it a website configuration.
+    // The bucket is left empty because we'll only use it to render a Pulumi preview.
     try {
         await s3.createBucket({
             Bucket: placeholderBucketName,
@@ -82,6 +91,7 @@ async function ensurePlaceholderBucket() {
                 LocationConstraint: awsConfig.require("region"),
             },
         }).promise();
+
         await s3.putBucketWebsite({
             Bucket: placeholderBucketName,
             WebsiteConfiguration: {
