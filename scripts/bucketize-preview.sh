@@ -24,9 +24,9 @@ aws_region="us-west-2"
 
 # Push site content to the bucket.
 echo "Synchronizing to $destination_bucket_uri..."
-aws s3 mb $destination_bucket_uri --region $aws_region
-aws s3 website $destination_bucket_uri --index-document index.html --error-document 404.html
-aws s3 sync "$build_dir" "$destination_bucket_uri" --acl public-read
+aws s3 mb $destination_bucket_uri --region $aws_region || true
+aws s3 website $destination_bucket_uri --index-document index.html --error-document 404.html || true
+aws s3 sync "$build_dir" "$destination_bucket_uri" --acl public-read --delete --quiet
 
 echo "Sync complete."
 s3_website_url="http://${destination_bucket}.s3-website.${aws_region}.amazonaws.com"
