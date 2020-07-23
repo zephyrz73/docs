@@ -68,6 +68,39 @@ post_to_slack() {
         https://slack.com/api/chat.postMessage > /dev/null
 }
 
+# Posts a comment to a GitHub PR. Requires a GitHub token is available in $GITHUB_TOKEN.
+# Usage: post_github_pr_comment "Hi!" "https://api.github.com/repos/<org>/<repo>/issues/<pr-number>/comments"
+post_github_pr_comment() {
+    local pr_comment=$1
+    local pr_comment_api_url=$2
+    local pr_comment_body=$(printf '{ "body": "%s" }' "$comment")
+
+    curl \
+        -X POST \
+        -H "Authorization: token ${GITHUB_TOKEN}" \
+        -d "$pr_comment_body" \
+        $pr_comment_api_url > /dev/null
+}
+
+git_sha() {
+    echo "$(git rev-parse HEAD)"
+}
+
+git_sha_short() {
+    echo "$(git rev-parse --short HEAD)"
+}
+
+# build_moniker returns a name that can be used for build-specific purposes, like bucket naming and asset naming.
+pr_number_or_git_sha() {
+    if [[ "$GITHUB_EVENT_NAME" == "pull_request" && ! -z "$GITHUB_EVENT_PATH" ]]; then
+        echo $(cat "$GITHUB_EVENT_PATH" | jq -r ".number")
+    else
+        # We use the Git SHA to name our CSS and JS bundles uniquely. In most cases, we'll get the
+        # SHA from GitHub Actions, but in case we don't, just fall back to Git.
+        echo "${GITHUB_SHA:=$git_sha_short}"
+    fi
+}
+
 # Retry the given command some number of times, with a delay of some number of seconds between calls.
 # Usage: retry some_command <retry-count> <delay-in-seconds>
 retry() {

@@ -33,20 +33,9 @@ if [ ! "$(find $build_dir -type f | grep index.html | wc -l)" -ge 1000 ]; then
     exit 1
 fi
 
-# Git references for various purposes, below.
-git_sha="$(git rev-parse HEAD)"
-git_sha_short="$(git rev-parse --short HEAD)"
-
 # For previews, name the destination bucket with the PR number, to support short sync
-# times. (TODO: Pair this with using the PR number for CSS and JS bundles, too, or there
-# won't actually be any cost savings.) For non-previews, just use the short Git SHA.
-if [ "$1" == "preview" ]; then
-    gh_pr_number=$(cat "$GITHUB_EVENT_PATH" | jq -r ".number")
-    destination_bucket="pulumi-docs-origin-${gh_pr_number}"
-else
-    destination_bucket="pulumi-docs-origin-${git_sha_short}"
-fi
-
+# times.
+destination_bucket="pulumi-docs-origin-${pr_number_or_git_sha}"
 destination_bucket_uri="s3://${destination_bucket}"
 
 # Log in and select the target stack.
@@ -119,7 +108,9 @@ aws s3 cp "$metadata_file" "${destination_bucket_uri}/metadata.json" --region $a
 
 # Finally, if it's a preview, post a comment to the PR that directs the user to the resulting bucket URL.
 if [ "$1" == "preview" ]; then
-    pr_comment_api_url=$(cat "$GITHUB_EVENT_PATH" | jq -r ".pull_request._links.comments.href")
-    pr_comment_body=$(printf '{ "body": "%s" }' "Your site preview build for for commit "${git_sha_short} is ready! :tada:\n\n${s3_website_url}.")
-    curl -X POST -H "Authorization: token $GITHUB_TOKEN" -d "$pr_comment_body" $pr_comment_api_url
+    # TODO: This won't work locally, JFYI.
+    pr_comment_api_url="$(cat "$GITHUB_EVENT_PATH" | jq -r ".pull_request._links.comments.href")"
+    post_github_pr_comment \
+        "Your site preview build for for commit ${git_sha_short} is ready! :tada:\n\n${s3_website_url}." \
+        $pr_comment_api_url
 fi

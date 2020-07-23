@@ -2,16 +2,14 @@
 
 set -o errexit -o pipefail
 
-export NODE_ENV="production"
+source ./scripts/common.sh
 
-# We use the Git SHA to name our CSS and JS bundles uniquely. In most cases, we'll get the
-# SHA from GitHub Actions, but in case we don't, just fall back to Git.
-export GIT_SHA=${GITHUB_SHA:=$(git rev-list HEAD | head -1)}
+export NODE_ENV="production"
 
 # Paths to the CSS and JS bundles we'll generate below. Note that environment variables
 # are read by some templates during the Hugo build process.
-export CSS_BUNDLE="public/css/styles.${GIT_SHA}.css"
-export JS_BUNDLE="public/js/bundle.min.${GIT_SHA}.js"
+export CSS_BUNDLE="public/css/styles.${pr_number_or_git_sha}.css"
+export JS_BUNDLE="public/js/bundle.min.${pr_number_or_git_sha}.js"
 
 printf "Copying prebuilt docs...\n\n"
 make copy_static_prebuilt
@@ -21,7 +19,7 @@ make build_components
 
 printf "Running Hugo...\n\n"
 if [ "$1" == "preview" ]; then
-    hugo --minify --templateMetrics --buildDrafts --buildFuture -e ${GIT_SHA}
+    hugo --minify --templateMetrics --buildDrafts --buildFuture -e ${pr_number_or_git_sha}
 else
     hugo --minify --templateMetrics -e production
 fi
