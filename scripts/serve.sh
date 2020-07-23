@@ -2,8 +2,7 @@
 
 set -o errexit -o pipefail
 
-# We use the Git SHA to name our CSS and JS bundles uniquely.
-export GIT_SHA="$(git rev-list HEAD | head -1)"
+source ./scripts/common.sh
 
 # Paths to the CSS and JS bundles we'll generate below. Note that environment variables
 # are read by some templates during the Hugo build process, and we write to the static
@@ -11,6 +10,10 @@ export GIT_SHA="$(git rev-list HEAD | head -1)"
 # use LiveReload in development.
 export CSS_BUNDLE="static/css/styles.${GIT_SHA}.css"
 export JS_BUNDLE="static/js/bundle.min.${GIT_SHA}.js"
+
+# Relative paths to those same files, read by Hugo templates.
+export REL_CSS_BUNDLE="/css/styles.$(pr_number_or_git_sha).css"
+export REL_JS_BUNDLE="/js/bundle.min.$(pr_number_or_git_sha).js"
 
 watch_hugo() {
     hugo server --buildDrafts --buildFuture --renderToDisk

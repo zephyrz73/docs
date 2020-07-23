@@ -51,9 +51,18 @@ aws_region="$(run_pulumi_config get 'aws:region')"
 
 # Push site content to the bucket.
 echo "Synchronizing to $destination_bucket_uri..."
+
 # TODO: Decide which account to make this in.
+
+# Make the bucket. If this fails, assume that means we've already made it.
 aws s3 mb $destination_bucket_uri --region $aws_region || echo "Bucket already exists. Continuing..."
+
+# Make the bucket an S3 website.
 aws s3 website $destination_bucket_uri --index-document index.html --error-document 404.html
+
+# Sync the local build directory to the bucket. Note that we do pass the --delete option
+# here, since in most cases, we'll be continually updating a bucket associated with a PR;
+# passing this option keeps the destination bucket clean.
 aws s3 sync "$build_dir" "$destination_bucket_uri" --acl public-read --delete --quiet
 
 echo "Sync complete."

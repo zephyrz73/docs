@@ -11,6 +11,10 @@ export NODE_ENV="production"
 export CSS_BUNDLE="public/css/styles.$(pr_number_or_git_sha).css"
 export JS_BUNDLE="public/js/bundle.min.$(pr_number_or_git_sha).js"
 
+# Relative paths to those same files, read by Hugo templates.
+export REL_CSS_BUNDLE="/css/styles.$(pr_number_or_git_sha).css"
+export REL_JS_BUNDLE="/js/bundle.min.$(pr_number_or_git_sha).js"
+
 printf "Copying prebuilt docs...\n\n"
 make copy_static_prebuilt
 
