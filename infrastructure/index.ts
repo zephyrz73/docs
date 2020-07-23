@@ -28,7 +28,8 @@ const config = {
     // redirectDomain is the domain to use for any redirects.
     redirectDomain: stackConfig.get("redirectDomain") || undefined,
     // originBucketNameOverride is an optional value that can be used to manually pin the
-    // website to a specific S3 bucket.
+    // website to a specific S3 bucket. Values are of the form "bucket-name-123", rather
+    // than "s3://bucket-name-123.
     originBucketNameOverride: stackConfig.get("originBucketNameOverride") || undefined,
     // pathToOriginBucketMetadata is the path to the file produced at the end of a production build.
     pathToOriginBucketMetadata: stackConfig.require("pathToOriginBucketMetadata"),
@@ -38,16 +39,8 @@ const config = {
 
 // originBucketName is the name of the bucket to use for the website. It can be specified
 // in a couple of ways:
-//
 // * As a manually set value on the stack config, which takes highest precedence.
 // * As a computed value produced by a production build that's been run locally.
-//
-// Note that with pull-request builds, since we don't run a production build, there won't
-// be a bucket to use for the preview (that is, to compare with what's currently
-// deployed). So in order to be able to compile the Pulumi program and generate a
-// reasonably meaningful preview, an actual S3 bucket needs to be available. For this
-// case, we use a pre-built, empty bucket named according to the stack, and the program
-// ensures that this bucket is only used during previews.
 let originBucketName: string | undefined;
 
 // If a build metadata file is present and contains valid content, use that by default. This
@@ -57,87 +50,9 @@ if (fs.existsSync(config.pathToOriginBucketMetadata)) {
 }
 
 // However, if the bucket's been configured manually, use that instead. A manually
-// configured bucket means that someone's decided to pin it. (Incidentally, this value
-// should be of the form "bucket-name-123", rather than "s3://bucket-name-123".)
+// configured bucket means that someone's decided to pin it.
 if (config.originBucketNameOverride) {
     originBucketName = config.originBucketNameOverride;
-}
-
-// The name of the bucket to use as a placeholder, for previews.
-const placeholderBucketName = `pulumi-docs-origin-placeholder-${pulumi.getStack()}`;
-
-// Ensure we have a placeholder bucket to work with. This function creates one and gives
-// it the proper configuration if we don't have one already.
-async function ensurePlaceholderBucket(roleToAssume?: string) {
-    let configOptions;
-
-    if (roleToAssume) {
-        try {
-            const sts = new aws.sdk.STS();
-            const role = await sts.assumeRole({
-                RoleArn: roleToAssume,
-                RoleSessionName: "AWSSDK",
-            }).promise();
-
-            configOptions = {
-                accessKeyId: role.Credentials?.AccessKeyId,
-                secretAccessKey: role.Credentials?.SecretAccessKey,
-                sessionToken: role.Credentials?.SessionToken,
-            };
-        }
-        catch (error) {
-            pulumi.log.error(error);
-            throw new Error(`Failed to assume role ${roleToAssume}.`);
-        }
-    }
-
-    const s3 = new aws.sdk.S3(configOptions);
-
-    // headBucket is a quick way to determine whether the bucket exists and we have access
-    // to work with it. If it works, we're done.
-    try {
-        await s3.headBucket({
-            Bucket: placeholderBucketName,
-        }).promise();
-        pulumi.log.info(`Found placeholder bucket ${placeholderBucketName}.`)
-        return;
-    }
-    catch (error) {
-        pulumi.log.info(`Placeholder bucket ${placeholderBucketName} was not found.`);
-    }
-
-    // Otherwise, create the bucket in the current AWS region and give it a website configuration.
-    // The bucket is left empty because we'll only use it to render a Pulumi preview.
-    try {
-        await s3.createBucket({
-            Bucket: placeholderBucketName,
-            CreateBucketConfiguration: {
-                LocationConstraint: awsConfig.require("region"),
-            },
-        }).promise();
-
-        await s3.putBucketWebsite({
-            Bucket: placeholderBucketName,
-            WebsiteConfiguration: {
-                IndexDocument: { Suffix: "index.html" },
-                ErrorDocument: { Key: "error.html " },
-            },
-        }).promise();
-        pulumi.log.info(`Created ${placeholderBucketName} and applied website configuration.`);
-    }
-    catch (error) {
-        pulumi.log.error(error);
-        throw new Error(`Failed to create ${placeholderBucketName}.`);
-    }
-}
-
-// Ensure we have a placeholder bucket to work with, for previews, as described above.
-ensurePlaceholderBucket(config.roleArn);
-
-// If there's still no bucket name set, and it's a dry run (and only if it's a dry run!),
-// use the placeholder bucket.
-if (!originBucketName && pulumi.runtime.isDryRun()) {
-    originBucketName = placeholderBucketName;
 }
 
 // If there's still no bucket selected, it's an error.

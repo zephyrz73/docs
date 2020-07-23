@@ -100,10 +100,10 @@ ci_push::
 ci_pull_request::
 	$(MAKE) banner
 	$(MAKE) ensure
-	$(MAKE) build
+	./scripts/build-site.sh preview
 	$(MAKE) test
 	./scripts/bucketize.sh preview
-	# ./scripts/run-pulumi.sh preview
+	./scripts/run-pulumi.sh preview
 
 .PHONY: ci_schedule
 ci_schedule::

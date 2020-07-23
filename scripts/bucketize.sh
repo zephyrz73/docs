@@ -42,7 +42,7 @@ git_sha_short="$(git rev-parse --short HEAD)"
 # won't actually be any cost savings.) For non-previews, just use the short Git SHA.
 if [ "$1" == "preview" ]; then
     gh_pr_number=$(cat "$GITHUB_EVENT_PATH" | jq -r ".number")
-    destination_bucket=$(echo "pulumi-docs-origin-${gh_pr_number}")
+    destination_bucket="pulumi-docs-origin-${gh_pr_number}"
 else
     destination_bucket="pulumi-docs-origin-${git_sha_short}"
 fi
@@ -120,6 +120,6 @@ aws s3 cp "$metadata_file" "${destination_bucket_uri}/metadata.json" --region $a
 # Finally, if it's a preview, post a comment to the PR that directs the user to the resulting bucket URL.
 if [ "$1" == "preview" ]; then
     pr_comment_api_url=$(cat "$GITHUB_EVENT_PATH" | jq -r ".pull_request._links.comments.href")
-    pr_comment_body=$(printf '{ "body": "%s" }' "Preview ready! Have a look at ${s3_website_url}.")
+    pr_comment_body=$(printf '{ "body": "%s" }' "Your site preview build for for commit "${git_sha_short} is ready! :tada:\n\n${s3_website_url}.")
     curl -X POST -H "Authorization: token $GITHUB_TOKEN" -d "$pr_comment_body" $pr_comment_api_url
 fi
