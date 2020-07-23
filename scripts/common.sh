@@ -83,11 +83,11 @@ post_github_pr_comment() {
 }
 
 git_sha() {
-    echo "$(git rev-parse HEAD)"
+    git rev-parse HEAD
 }
 
 git_sha_short() {
-    echo "$(git rev-parse --short HEAD)"
+    git rev-parse --short HEAD
 }
 
 # build_moniker returns a name that can be used for build-specific purposes, like bucket naming and asset naming.
