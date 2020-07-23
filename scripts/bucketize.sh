@@ -35,7 +35,7 @@ fi
 
 # For previews, name the destination bucket with the PR number, to support short sync
 # times.
-destination_bucket="pulumi-docs-origin-${pr_number_or_git_sha}"
+destination_bucket="pulumi-docs-origin-$(pr_number_or_git_sha)"
 destination_bucket_uri="s3://${destination_bucket}"
 
 # Log in and select the target stack.
@@ -101,7 +101,7 @@ metadata='{
     "bucket": "%s",
     "commit": "%s"
 }'
-printf "$metadata" "$destination_bucket" "$git_sha" > "$metadata_file"
+printf "$metadata" "$destination_bucket" "$(git_sha)" > "$metadata_file"
 
 # Copy the file to the destination bucket, for future reference.
 aws s3 cp "$metadata_file" "${destination_bucket_uri}/metadata.json" --region $aws_region --acl public-read
@@ -111,6 +111,6 @@ if [ "$1" == "preview" ]; then
     # TODO: This won't work locally, JFYI.
     pr_comment_api_url="$(cat "$GITHUB_EVENT_PATH" | jq -r ".pull_request._links.comments.href")"
     post_github_pr_comment \
-        "Your site preview build for for commit ${git_sha_short} is ready! :tada:\n\n${s3_website_url}." \
+        "Your site preview build for for commit $(git_sha_short) is ready! :tada:\n\n${s3_website_url}." \
         $pr_comment_api_url
 fi

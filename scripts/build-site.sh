@@ -8,8 +8,8 @@ export NODE_ENV="production"
 
 # Paths to the CSS and JS bundles we'll generate below. Note that environment variables
 # are read by some templates during the Hugo build process.
-export CSS_BUNDLE="public/css/styles.${pr_number_or_git_sha}.css"
-export JS_BUNDLE="public/js/bundle.min.${pr_number_or_git_sha}.js"
+export CSS_BUNDLE="public/css/styles.$(pr_number_or_git_sha).css"
+export JS_BUNDLE="public/js/bundle.min.$(pr_number_or_git_sha).js"
 
 printf "Copying prebuilt docs...\n\n"
 make copy_static_prebuilt
@@ -19,7 +19,7 @@ make build_components
 
 printf "Running Hugo...\n\n"
 if [ "$1" == "preview" ]; then
-    hugo --minify --templateMetrics --buildDrafts --buildFuture -e ${pr_number_or_git_sha}
+    hugo --minify --templateMetrics --buildDrafts --buildFuture -e $(pr_number_or_git_sha)
 else
     hugo --minify --templateMetrics -e production
 fi
