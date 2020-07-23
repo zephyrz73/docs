@@ -8,7 +8,8 @@ yarn -v
 
 pwd
 
+yarn cache clean
+rm -rf node_modules
 yarn install
-yarn add --force node-sass
 
 ./scripts/build-site.sh preview
