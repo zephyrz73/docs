@@ -15,6 +15,9 @@ source ./scripts/common.sh
 build_dir="public"
 
 # The S3 bucket to publish to.
+now="$(date '+%Y%m%d%H%M%S')"
+git_sha="$(git rev-parse HEAD)"
+git_sha_short="$(git rev-parse --short HEAD)"
 gh_pr_number=$(cat "$GITHUB_EVENT_PATH" | jq -r ".number")
 destination_bucket=$(echo "pulumi-docs-preview-${gh_pr_number}")
 destination_bucket_uri="s3://${destination_bucket}"
@@ -32,7 +35,7 @@ aws_region="$(run_pulumi_config get 'aws:region')"
 
 # Push site content to the bucket.
 echo "Synchronizing to $destination_bucket_uri..."
-aws s3 mb $destination_bucket_uri --region $aws_region || echo "Bucket alrady exists. Continuing."
+aws s3 mb $destination_bucket_uri --region $aws_region || echo "Bucket already exists. Continuing..."
 aws s3 website $destination_bucket_uri --index-document index.html --error-document 404.html
 aws s3 sync "$build_dir" "$destination_bucket_uri" --acl public-read --delete --quiet
 
@@ -40,15 +43,15 @@ echo "Sync complete."
 s3_website_url="http://${destination_bucket}.s3-website.${aws_region}.amazonaws.com"
 echo "$s3_website_url"
 
-# # Create an S3 object for each of the items in the redirect list so it returns a 301
-# # redirect (instead of serving the HTML with a meta-redirect). This ensures the right HTTP
-# # response code is returned for search engines and enables better support for URL anchors.
-# echo "Processing S3 redirects..."
-# IFS="|"
-# while read key location; do
-#     echo "Redirecting $key to $location (${destination_bucket})"
-#     aws s3api put-object --key "$key" --website-redirect-location "$location" --bucket "$destination_bucket" --acl public-read
-# done < $build_dir/redirects.txt
+# Create an S3 object for each of the items in the redirect list so it returns a 301
+# redirect (instead of serving the HTML with a meta-redirect). This ensures the right HTTP
+# response code is returned for search engines and enables better support for URL anchors.
+echo "Processing S3 redirects..."
+IFS="|"
+while read key location; do
+    echo "Redirecting $key to $location (${destination_bucket})"
+    aws s3api put-object --key "$key" --website-redirect-location "$location" --bucket "$destination_bucket" --acl public-read
+done < $build_dir/redirects.txt
 
 # Set the content-type of latest-version explicitly. (Otherwise, it'll be set as binary/octet-stream.)
 aws s3 cp "$build_dir/latest-version" "${destination_bucket_uri}/latest-version" \
@@ -83,7 +86,8 @@ printf "$metadata" "$destination_bucket" "$git_sha" > "$metadata_file"
 aws s3 cp "$metadata_file" "${destination_bucket_uri}/metadata.json" --region $aws_region --acl public-read
 
 # Next, post a comment to the PR that directs the user to the resulting bucket URL.
-PR_COMMENT_API_LINK=$(cat "$GITHUB_EVENT_PATH" | jq -r ".pull_request._links.comments.href")
-curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
-    -d "{ \"body\": \"Preview at ${s3_website_url}.\" }" \
-    $PR_COMMENT_API_LINK
+pr_comment_api_url=$(cat "$GITHUB_EVENT_PATH" | jq -r ".pull_request._links.comments.href")
+curl -X POST \
+    -H "Authorization: token $GITHUB_TOKEN" \
+    -d "{ \"body\": \"Preview ready! Have a look at ${s3_website_url}.\" }" \
+    $pr_comment_api_url
