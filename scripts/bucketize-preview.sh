@@ -14,6 +14,9 @@ source ./scripts/common.sh
 # The docroot of the built website.
 build_dir="public"
 
+# The text file we'll write as an output result.
+metadata_file="origin-bucket-metadata.json"
+
 # The S3 bucket to publish to.
 now="$(date '+%Y%m%d%H%M%S')"
 git_sha="$(git rev-parse HEAD)"
@@ -43,21 +46,18 @@ echo "Sync complete."
 s3_website_url="http://${destination_bucket}.s3-website.${aws_region}.amazonaws.com"
 echo "$s3_website_url"
 
-# Create an S3 object for each of the items in the redirect list so it returns a 301
-# redirect (instead of serving the HTML with a meta-redirect). This ensures the right HTTP
-# response code is returned for search engines and enables better support for URL anchors.
-echo "Processing S3 redirects..."
-IFS="|"
-while read key location; do
-    echo "Redirecting $key to $location (${destination_bucket})"
-    aws s3api put-object --key "$key" --website-redirect-location "$location" --bucket "$destination_bucket" --acl public-read
-done < $build_dir/redirects.txt
+echo "Done! The bucket website is now built and available at ${s3_website_url}."
 
 # Set the content-type of latest-version explicitly. (Otherwise, it'll be set as binary/octet-stream.)
 aws s3 cp "$build_dir/latest-version" "${destination_bucket_uri}/latest-version" \
     --content-type "text/plain" --acl public-read --metadata-directive REPLACE
 
-echo "Done! The bucket website is now built and available at ${s3_website_url}."
+# Next, post a comment to the PR that directs the user to the resulting bucket URL.
+pr_comment_api_url=$(cat "$GITHUB_EVENT_PATH" | jq -r ".pull_request._links.comments.href")
+curl -X POST \
+    -H "Authorization: token $GITHUB_TOKEN" \
+    -d "{ \"body\": \"Preview ready! Have a look at ${s3_website_url}.\" }" \
+    $pr_comment_api_url
 
 # Smoke test the deployed website. Specs are in ../cypress/integration.
 echo "Running tests..."
@@ -85,9 +85,12 @@ printf "$metadata" "$destination_bucket" "$git_sha" > "$metadata_file"
 # Copy the file to the destination bucket, for future reference.
 aws s3 cp "$metadata_file" "${destination_bucket_uri}/metadata.json" --region $aws_region --acl public-read
 
-# Next, post a comment to the PR that directs the user to the resulting bucket URL.
-pr_comment_api_url=$(cat "$GITHUB_EVENT_PATH" | jq -r ".pull_request._links.comments.href")
-curl -X POST \
-    -H "Authorization: token $GITHUB_TOKEN" \
-    -d "{ \"body\": \"Preview ready! Have a look at ${s3_website_url}.\" }" \
-    $pr_comment_api_url
+# Create an S3 object for each of the items in the redirect list so it returns a 301
+# redirect (instead of serving the HTML with a meta-redirect). This ensures the right HTTP
+# response code is returned for search engines and enables better support for URL anchors.
+# echo "Processing S3 redirects..."
+# IFS="|"
+# while read key location; do
+#     echo "Redirecting $key to $location (${destination_bucket})"
+#     aws s3api put-object --key "$key" --website-redirect-location "$location" --bucket "$destination_bucket" --acl public-read
+# done < $build_dir/redirects.txt
