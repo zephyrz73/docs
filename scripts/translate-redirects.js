@@ -10,9 +10,9 @@ const webContentsRootPath = process.argv[2];
 // The domain to redirect to, if any.
 const redirectDomain = process.argv[3];
 
-if (!webContentsRootPath || !redirectDomain) {
-    console.log("Usage: translate-redirects.js [path-to-website-build] [redirect-domain]");
-    console.log(`       translate-redirects.js "./public" "www-yourname.pulumi-dev.io`);
+if (!webContentsRootPath) {
+    console.log("Usage: translate-redirects.js [path-to-website-build] [optional-redirect-domain]");
+    console.log(`       translate-redirects.js "./public" "www-yourname.pulumi-dev.io"`);
     process.exit(1);
 }
 

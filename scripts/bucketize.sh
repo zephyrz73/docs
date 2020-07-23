@@ -3,7 +3,11 @@
 # Exit on any non-zero status or unbound variable, and print all commands to the terminal.
 set -euo pipefail
 
-source ./scripts/common.sh
+# See if we have the requisite credentials. If not, we might be in a fork. Exit cleanly.
+if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ] || [ -z "${PULUMI_ACCESS_TOKEN:-}" ]; then
+    echo "# Missing secret tokens -- possibly due to a forked PR -- skipping"
+    exit 1
+fi
 
 # This script takes the built Hugo site and:
 #   * creates a new S3 bucket named with the current Git SHA and a timestamp (of now)
@@ -14,6 +18,8 @@ source ./scripts/common.sh
 #     behaving properly
 #   * sets a Pulumi stack-configuration item marking the new, tested bucket as the one to
 #     be used on the next Pulumi update
+
+source ./scripts/common.sh
 
 # The docroot of the built website.
 build_dir="public"
@@ -27,12 +33,20 @@ if [ ! "$(find $build_dir -type f | grep index.html | wc -l)" -ge 1000 ]; then
     exit 1
 fi
 
-# The S3 bucket to publish to. We name this using both Git SHA and timestamp to
-# be sure every run produces its own bucket.
-now="$(date '+%Y%m%d%H%M%S')"
+# Git references for various purposes, below.
 git_sha="$(git rev-parse HEAD)"
 git_sha_short="$(git rev-parse --short HEAD)"
-destination_bucket="pulumi-docs-origin-${git_sha_short}-${now}"
+
+# For previews, name the destination bucket with the PR number, to support short sync
+# times. (TODO: Pair this with using the PR number for CSS and JS bundles, too, or there
+# won't actually be any cost savings.) For non-previews, just use the short Git SHA.
+if [ "$1" == "preview" ]; then
+    gh_pr_number=$(cat "$GITHUB_EVENT_PATH" | jq -r ".number")
+    destination_bucket=$(echo "pulumi-docs-origin-${gh_pr_number}")
+else
+    destination_bucket="pulumi-docs-origin-${git_sha_short}"
+fi
+
 destination_bucket_uri="s3://${destination_bucket}"
 
 # Log in and select the target stack.
@@ -48,9 +62,10 @@ aws_region="$(run_pulumi_config get 'aws:region')"
 
 # Push site content to the bucket.
 echo "Synchronizing to $destination_bucket_uri..."
-aws s3 mb $destination_bucket_uri --region $aws_region
+# TODO: Decide which account to make this in.
+aws s3 mb $destination_bucket_uri --region $aws_region || echo "Bucket already exists. Continuing..."
 aws s3 website $destination_bucket_uri --index-document index.html --error-document 404.html
-aws s3 sync "$build_dir" "$destination_bucket_uri" --acl public-read
+aws s3 sync "$build_dir" "$destination_bucket_uri" --acl public-read --delete --quiet
 
 echo "Sync complete."
 s3_website_url="http://${destination_bucket}.s3-website.${aws_region}.amazonaws.com"
@@ -59,12 +74,16 @@ echo "$s3_website_url"
 # Create an S3 object for each of the items in the redirect list so it returns a 301
 # redirect (instead of serving the HTML with a meta-redirect). This ensures the right HTTP
 # response code is returned for search engines and enables better support for URL anchors.
-echo "Processing S3 redirects..."
-IFS="|"
-while read key location; do
-    echo "Redirecting $key to $location (${destination_bucket})"
-    aws s3api put-object --key "$key" --website-redirect-location "$location" --bucket "$destination_bucket" --acl public-read
-done < $build_dir/redirects.txt
+if [ "$1" == "preview" ]; then
+    echo "Not processing S3 redirects, as this is a preview."
+else
+    echo "Processing S3 redirects..."
+    IFS="|"
+    while read key location; do
+        echo "Redirecting $key to $location (${destination_bucket})"
+        aws s3api put-object --key "$key" --website-redirect-location "$location" --bucket "$destination_bucket" --acl public-read
+    done < $build_dir/redirects.txt
+fi
 
 # Set the content-type of latest-version explicitly. (Otherwise, it'll be set as binary/octet-stream.)
 aws s3 cp "$build_dir/latest-version" "${destination_bucket_uri}/latest-version" \
@@ -85,7 +104,7 @@ CYPRESS_BASE_URL="$s3_website_url" yarn run cypress run --headless
 # Why use a local file and not `pulumi config`, or some other persistence store? Because
 # we need ensure that every CI job deploys only what it was responsible for building. If
 # we wrote to an async store in this step, and read from that store in the follow-on
-# Pulumi job, it'd be easy for anothe Pulumi run to pick up and deploy this job's
+# Pulumi job, it'd be easy for another Pulumi run to pick up and deploy this job's
 # artifact, or vice-versa. Coupled with the locking we get from the Pulumi Service, using
 # a local file is the safest way to ensure we're always deploying what we think we are.
 echo "Writing result metadata."
@@ -97,3 +116,10 @@ printf "$metadata" "$destination_bucket" "$git_sha" > "$metadata_file"
 
 # Copy the file to the destination bucket, for future reference.
 aws s3 cp "$metadata_file" "${destination_bucket_uri}/metadata.json" --region $aws_region --acl public-read
+
+# Finally, if it's a preview, post a comment to the PR that directs the user to the resulting bucket URL.
+if [ "$1" == "preview" ]; then
+    pr_comment_api_url=$(cat "$GITHUB_EVENT_PATH" | jq -r ".pull_request._links.comments.href")
+    pr_comment_body=$(printf '{ "body": "%s" }' "Preview ready! Have a look at ${s3_website_url}.")
+    curl -X POST -H "Authorization: token $GITHUB_TOKEN" -d "$pr_comment_body" $pr_comment_api_url
+fi

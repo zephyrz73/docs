@@ -70,14 +70,10 @@ build:
 	yarn lint-markdown
 	./scripts/build-site.sh
 
-.PHONY: bucketize
-bucketize:
-	@echo -e "\033[0;32mBUCKETIZE:\033[0m"
-	./scripts/bucketize.sh
-
 .PHONY: pulumify
 pulumify:
 	@echo -e "\033[0;32mBUILD PULUMIFY:\033[0m"
+	$(MAKE) clean
 	$(MAKE) ensure
 	./scripts/pulumify.sh
 
@@ -96,8 +92,9 @@ ci_push::
 	$(MAKE) banner
 	$(MAKE) ensure
 	$(MAKE) build
-	$(MAKE) bucketize
-	./scripts/run-pulumi.sh update
+	$(MAKE) test
+	# ./scripts/bucketize.sh
+	# ./scripts/run-pulumi.sh update
 
 .PHONY: ci_pull_request
 ci_pull_request::
@@ -105,7 +102,7 @@ ci_pull_request::
 	$(MAKE) ensure
 	$(MAKE) build
 	$(MAKE) test
-	./scripts/bucketize-preview.sh
+	./scripts/bucketize.sh preview
 	# ./scripts/run-pulumi.sh preview
 
 .PHONY: ci_schedule
