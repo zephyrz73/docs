@@ -4,8 +4,8 @@
 # required for Pulumify builds, so it must have something to do with how we're executing
 # the PULUMIFY BUILD command, how Make targets are executed, and how the environment in
 # the Docker container is constructed.
-rm -rf node_modules
 yarn cache clean
+rm -rf node_modules
 yarn install
 
 ./scripts/build-site.sh preview
