@@ -73,7 +73,7 @@ post_to_slack() {
 post_github_pr_comment() {
     local pr_comment=$1
     local pr_comment_api_url=$2
-    local pr_comment_body=$(printf '{ "body": "%s" }' "$comment")
+    local pr_comment_body=$(printf '{ "body": "%s" }' "$pr_comment")
 
     curl \
         -X POST \

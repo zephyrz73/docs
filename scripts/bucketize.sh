@@ -91,6 +91,11 @@ echo "Done! The bucket website is now built and available at ${s3_website_url}."
 
 # Smoke test the deployed website. Specs are in ../cypress/integration.
 echo "Running tests..."
+
+# Make sure important links resolve.
+./scripts/check-links.sh "bucket" "$s3_website_url"
+
+# Make sure the site behaves properly in a browser.
 CYPRESS_BASE_URL="$s3_website_url" yarn run cypress run --headless
 
 # At this point, we have a bucket that's suitable for deployment. As a result of this run,

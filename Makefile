@@ -67,15 +67,7 @@ copy_static_prebuilt:
 .PHONY: build
 build:
 	@echo -e "\033[0;32mBUILD:\033[0m"
-	yarn lint-markdown
 	./scripts/build-site.sh
-
-.PHONY: pulumify
-pulumify:
-	@echo -e "\033[0;32mBUILD PULUMIFY:\033[0m"
-	$(MAKE) clean
-	$(MAKE) ensure
-	./scripts/pulumify.sh
 
 .PHONY: test
 test:
@@ -91,9 +83,8 @@ check_links_local::
 ci_push::
 	$(MAKE) banner
 	$(MAKE) ensure
-	$(MAKE) build
-	$(MAKE) test
-	# ./scripts/bucketize.sh
+	# ./scripts/find-or-make-bucket.sh
+	# ./scripts/check-links.sh local
 	# ./scripts/run-pulumi.sh update
 
 .PHONY: ci_pull_request
@@ -101,7 +92,6 @@ ci_pull_request::
 	$(MAKE) banner
 	$(MAKE) ensure
 	./scripts/build-site.sh preview
-	$(MAKE) test
 	./scripts/bucketize.sh preview
 	./scripts/run-pulumi.sh preview
 
