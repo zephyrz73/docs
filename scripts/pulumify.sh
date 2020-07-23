@@ -6,6 +6,7 @@
 # the Docker container is constructed.
 yarn cache clean
 rm -rf node_modules
+yarn config set unsafe-perm true
 yarn install
 
 ./scripts/build-site.sh preview
