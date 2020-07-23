@@ -32,6 +32,8 @@ const config = {
     originBucketNameOverride: stackConfig.get("originBucketNameOverride") || undefined,
     // pathToOriginBucketMetadata is the path to the file produced at the end of a production build.
     pathToOriginBucketMetadata: stackConfig.require("pathToOriginBucketMetadata"),
+    // roleArn is the role to assume during the run, if any.
+    roleArn: stackConfig.get("roleArn") || undefined,
 };
 
 // originBucketName is the name of the bucket to use for the website. It can be specified
@@ -66,8 +68,28 @@ const placeholderBucketName = `pulumi-docs-origin-placeholder-${pulumi.getStack(
 
 // Ensure we have a placeholder bucket to work with. This function creates one and gives
 // it the proper configuration if we don't have one already.
-async function ensurePlaceholderBucket() {
+async function ensurePlaceholderBucket(roleToAssume?: string) {
     const s3 = new aws.sdk.S3();
+
+    if (roleToAssume) {
+        try {
+            const sts = new aws.sdk.STS();
+            const role = await sts.assumeRole({
+                RoleArn: roleToAssume,
+                RoleSessionName: "awssdk",
+            }).promise();
+
+            const sdkConfig = new aws.sdk.Config();
+            sdkConfig.update({
+                accessKeyId: role.Credentials?.AccessKeyId,
+                secretAccessKey: role.Credentials?.SecretAccessKey,
+                sessionToken: role.Credentials?.SessionToken,
+            });
+        }
+        catch (error) {
+            throw new Error(`Failed to assume role ${roleToAssume}.`);
+        }
+    }
 
     // headBucket is a quick way to determine whether the bucket exists and we have access
     // to work with it. If it does, we're done.
@@ -75,11 +97,11 @@ async function ensurePlaceholderBucket() {
         await s3.headBucket({
             Bucket: placeholderBucketName,
         }).promise();
-        console.log(`Found placeholder bucket ${placeholderBucketName}.`);
+        pulumi.log.info(`Found placeholder bucket ${placeholderBucketName}.`)
         return;
     }
     catch (error) {
-        console.log(`Placeholder bucket ${placeholderBucketName} was not found.`);
+        pulumi.log.info(`Placeholder bucket ${placeholderBucketName} was not found.`);
     }
 
     // Otherwise, create the bucket in the current AWS region and give it a website configuration.
@@ -99,16 +121,15 @@ async function ensurePlaceholderBucket() {
                 ErrorDocument: { Key: "error.html " },
             },
         }).promise();
-        console.log(`Created ${placeholderBucketName} and applied website configuration.`);
+        pulumi.log.info(`Created ${placeholderBucketName} and applied website configuration.`);
     }
     catch (error) {
-        console.log(`Failed to create ${placeholderBucketName}.`);
-        throw new Error(error);
+        throw new Error(`Failed to create ${placeholderBucketName}.`);
     }
 }
 
 // Ensure we have a placeholder bucket to work with, for previews, as described above.
-ensurePlaceholderBucket();
+ensurePlaceholderBucket(config.roleArn);
 
 // If there's still no bucket name set, and it's a dry run (and only if it's a dry run!),
 // use the placeholder bucket.
