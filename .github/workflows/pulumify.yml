@@ -2,6 +2,7 @@ name: Pulumify
 on: [pull_request, delete]
 jobs:
   updateLivePreview:
+    if: false
     name: Update Live Preview
     runs-on: ubuntu-latest
     steps:

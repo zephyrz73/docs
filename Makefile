@@ -78,7 +78,6 @@ bucketize:
 .PHONY: pulumify
 pulumify:
 	@echo -e "\033[0;32mBUILD PULUMIFY:\033[0m"
-	$(MAKE) clean
 	$(MAKE) ensure
 	./scripts/pulumify.sh
 
@@ -106,7 +105,8 @@ ci_pull_request::
 	$(MAKE) ensure
 	$(MAKE) build
 	$(MAKE) test
-	./scripts/run-pulumi.sh preview
+	./scripts/bucketize-preview.sh
+	# ./scripts/run-pulumi.sh preview
 
 .PHONY: ci_schedule
 ci_schedule::
