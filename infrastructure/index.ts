@@ -69,7 +69,8 @@ const placeholderBucketName = `pulumi-docs-origin-placeholder-${pulumi.getStack(
 // Ensure we have a placeholder bucket to work with. This function creates one and gives
 // it the proper configuration if we don't have one already.
 async function ensurePlaceholderBucket(roleToAssume?: string) {
-    const s3 = new aws.sdk.S3();
+
+    let configOptions;
 
     if (roleToAssume) {
         try {
@@ -79,17 +80,18 @@ async function ensurePlaceholderBucket(roleToAssume?: string) {
                 RoleSessionName: "AWSSDK",
             }).promise();
 
-            const sdkConfig = new aws.sdk.Config();
-            sdkConfig.update({
+            configOptions = {
                 accessKeyId: role.Credentials?.AccessKeyId,
                 secretAccessKey: role.Credentials?.SecretAccessKey,
                 sessionToken: role.Credentials?.SessionToken,
-            });
+            };
         }
         catch (error) {
             throw new Error(`Failed to assume role ${roleToAssume}.`);
         }
     }
+
+    const s3 = new aws.sdk.S3(configOptions);
 
     // headBucket is a quick way to determine whether the bucket exists and we have access
     // to work with it. If it does, we're done.
@@ -112,6 +114,7 @@ async function ensurePlaceholderBucket(roleToAssume?: string) {
             CreateBucketConfiguration: {
                 LocationConstraint: awsConfig.require("region"),
             },
+
         }).promise();
 
         await s3.putBucketWebsite({
