@@ -90,13 +90,16 @@ git_sha_short() {
     git rev-parse --short HEAD
 }
 
-# build_moniker returns a name that can be used for build-specific purposes, like bucket naming and asset naming.
+# pr_number_or_git_sha returns wither the PR number of the current GitHub Actions run or the Git SHA of the current branch, a name that can be used for build-specific purposes, like bucket naming and asset naming.
 pr_number_or_git_sha() {
+    echo ">$GITHUB_EVENT_NAME<"
+    echo ">$GITHUB_EVENT_PATH<"
+    echo ">$(cat "$GITHUB_EVENT_PATH" | jq -r ".number")<"
+    echo ">$GITHUB_SHA<"
+    echo ">$git_sha_short<"
     if [[ "$GITHUB_EVENT_NAME" == "pull_request" && ! -z "$GITHUB_EVENT_PATH" ]]; then
         echo $(cat "$GITHUB_EVENT_PATH" | jq -r ".number")
     else
-        # We use the Git SHA to name our CSS and JS bundles uniquely. In most cases, we'll get the
-        # SHA from GitHub Actions, but in case we don't, just fall back to Git.
         echo "${GITHUB_SHA:=$git_sha_short}"
     fi
 }
