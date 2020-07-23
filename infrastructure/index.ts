@@ -51,7 +51,7 @@ const config = {
 let originBucketName: string | undefined;
 
 // If a build metadata file is present and contains valid content, use that by default. This
-// will fail if there's a file present that isn't parseable as expected.
+// will fail if there's a file present that isn't parsable as expected.
 if (fs.existsSync(config.pathToOriginBucketMetadata)) {
     originBucketName = JSON.parse(fs.readFileSync(config.pathToOriginBucketMetadata).toString()).bucket;
 }
@@ -76,7 +76,7 @@ async function ensurePlaceholderBucket(roleToAssume?: string) {
             const sts = new aws.sdk.STS();
             const role = await sts.assumeRole({
                 RoleArn: roleToAssume,
-                RoleSessionName: "awssdk",
+                RoleSessionName: "AWSSDK",
             }).promise();
 
             const sdkConfig = new aws.sdk.Config();
