@@ -30,7 +30,7 @@ describe("www.pulumi.com", () => {
             cy.visit("/docs/get-started/aws/begin");
         });
 
-        it("renders the OS chooser", () => {
+        xit("renders the OS chooser", () => {
             cy.get(`pulumi-choosable[type="os"][value="macos"] > div`)
                 .should("have.class", "active");
             cy.get(`pulumi-choosable[type="os"][value="linux"] > div`)

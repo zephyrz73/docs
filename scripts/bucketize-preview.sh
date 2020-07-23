@@ -19,18 +19,36 @@ gh_pr_number=$(cat "$GITHUB_EVENT_PATH" | jq -r ".number")
 destination_bucket=$(echo "pulumi-docs-preview-${gh_pr_number}")
 destination_bucket_uri="s3://${destination_bucket}"
 
+# Log in and select the target stack.
+run_pulumi_login
+run_pulumi_stack_select
+
+# Translate Hugo redirects into 301s. Note that we do this before syncing the site, as
+# having the redirects available for reference can be helpful for debugging purposes.
+node scripts/translate-redirects.js "$build_dir" "$(run_pulumi_config get redirectDomain || echo '')"
+
 # Read the region from the stack's config -- we use it below.
-aws_region="us-west-2"
+aws_region="$(run_pulumi_config get 'aws:region')"
 
 # Push site content to the bucket.
 echo "Synchronizing to $destination_bucket_uri..."
-aws s3 mb $destination_bucket_uri --region $aws_region || true
-aws s3 website $destination_bucket_uri --index-document index.html --error-document 404.html || true
+aws s3 mb $destination_bucket_uri --region $aws_region || echo "Bucket alrady exists. Continuing."
+aws s3 website $destination_bucket_uri --index-document index.html --error-document 404.html
 aws s3 sync "$build_dir" "$destination_bucket_uri" --acl public-read --delete --quiet
 
 echo "Sync complete."
 s3_website_url="http://${destination_bucket}.s3-website.${aws_region}.amazonaws.com"
 echo "$s3_website_url"
+
+# # Create an S3 object for each of the items in the redirect list so it returns a 301
+# # redirect (instead of serving the HTML with a meta-redirect). This ensures the right HTTP
+# # response code is returned for search engines and enables better support for URL anchors.
+# echo "Processing S3 redirects..."
+# IFS="|"
+# while read key location; do
+#     echo "Redirecting $key to $location (${destination_bucket})"
+#     aws s3api put-object --key "$key" --website-redirect-location "$location" --bucket "$destination_bucket" --acl public-read
+# done < $build_dir/redirects.txt
 
 # Set the content-type of latest-version explicitly. (Otherwise, it'll be set as binary/octet-stream.)
 aws s3 cp "$build_dir/latest-version" "${destination_bucket_uri}/latest-version" \
